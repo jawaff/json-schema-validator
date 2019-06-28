@@ -16,17 +16,18 @@
 
 package com.networknt.schema;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
-public class NotAllowedValidator extends BaseJsonValidator implements JsonValidator {
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.fasterxml.jackson.databind.JsonNode;
+
+public class NotAllowedValidator extends BaseAsyncJsonValidator implements JsonValidator {
     private static final Logger logger = LoggerFactory.getLogger(NotAllowedValidator.class);
 
     private List<String> fieldNames = new ArrayList<String>();
@@ -44,7 +45,8 @@ public class NotAllowedValidator extends BaseJsonValidator implements JsonValida
         parseErrorCode(getValidatorType().getErrorCodeKey());
     }
 
-    public Set<ValidationMessage> validateAsync(JsonNode node, JsonNode rootNode, String at) {
+    @Override
+    public Set<ValidationMessage> validateBlocking(JsonNode node, JsonNode rootNode, String at) {
         debug(logger, node, rootNode, at);
 
         Set<ValidationMessage> errors = new LinkedHashSet<ValidationMessage>();

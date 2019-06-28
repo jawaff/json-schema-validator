@@ -119,7 +119,7 @@ public abstract class BaseJsonValidator implements JsonValidator {
      * @param validateFutures The validate futures to wait for.
      * @return A future for the merged results of the given futures.
      */
-    protected CompletableFuture<Set<ValidationMessage>> waitForValidates(
+    protected CompletableFuture<Set<ValidationMessage>> combineValidateFutures(
             final Collection<CompletableFuture<Set<ValidationMessage>>> validateFutures) {
         @SuppressWarnings("unchecked")
         final CompletableFuture<Set<ValidationMessage>>[] futures = (CompletableFuture<Set<ValidationMessage>>[]) validateFutures.stream()

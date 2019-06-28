@@ -49,7 +49,7 @@ public class AllOfValidator extends BaseJsonValidator implements JsonValidator {
                 .map(schema -> validateNonblocking(node, rootNode, at))
                 .collect(Collectors.toList());
 
-        return this.waitForValidates(validateFutures);
+        return this.combineValidateFutures(validateFutures);
     }
 
 }

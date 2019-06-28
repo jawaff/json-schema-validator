@@ -20,7 +20,6 @@ import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URLDecoder;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -195,10 +194,4 @@ public class JsonSchema extends BaseJsonValidator {
 	public JsonValidator getRequiredValidator() {
 		return requiredValidator;
 	}
-
-    @Override
-    public CompletableFuture<Set<ValidationMessage>> validateNonblocking(JsonNode node, JsonNode rootNode, String at) {
-        // TODO Auto-generated method stub
-        return null;
-    }
 }

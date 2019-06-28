@@ -16,14 +16,16 @@
 
 package com.networknt.schema;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Collections;
-import java.util.LinkedHashSet;
-import java.util.HashSet;
-import java.util.Set;
+import com.fasterxml.jackson.databind.JsonNode;
 
 public class EnumValidator extends BaseJsonValidator implements JsonValidator {
     private static final Logger logger = LoggerFactory.getLogger(EnumValidator.class);
@@ -60,16 +62,19 @@ public class EnumValidator extends BaseJsonValidator implements JsonValidator {
         parseErrorCode(getValidatorType().getErrorCodeKey());
     }
 
-    public Set<ValidationMessage> validateAsync(JsonNode node, JsonNode rootNode, String at) {
-        debug(logger, node, rootNode, at);
-
-        Set<ValidationMessage> errors = new LinkedHashSet<ValidationMessage>();
-
-        if (!nodes.contains(node) && !(config.isTypeLoose() && isTypeLooseContainsInEnum(node))) {
-            errors.add(buildValidationMessage(at, error));
-        }
-
-        return Collections.unmodifiableSet(errors);
+    @Override
+    public CompletableFuture<Set<ValidationMessage>> validateNonblocking(JsonNode node, JsonNode rootNode, String at) {
+        return CompletableFuture.supplyAsync(() -> {
+            debug(logger, node, rootNode, at);
+            
+            Set<ValidationMessage> errors = new LinkedHashSet<>();
+            
+            if (!nodes.contains(node) && !(config.isTypeLoose() && isTypeLooseContainsInEnum(node))) {
+                errors.add(buildValidationMessage(at, error));
+            }
+            
+            return errors;
+        }, this.validationContext.getExecutor());
     }
 
     /**

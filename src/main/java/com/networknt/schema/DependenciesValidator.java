@@ -16,11 +16,20 @@
 
 package com.networknt.schema;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.*;
+import com.fasterxml.jackson.databind.JsonNode;
 
 public class DependenciesValidator extends BaseJsonValidator implements JsonValidator {
     private static final Logger logger = LoggerFactory.getLogger(DependenciesValidator.class);
@@ -50,11 +59,12 @@ public class DependenciesValidator extends BaseJsonValidator implements JsonVali
 
         parseErrorCode(getValidatorType().getErrorCodeKey());
     }
-
-    public Set<ValidationMessage> validateAsync(JsonNode node, JsonNode rootNode, String at) {
+    
+    @Override
+    public CompletableFuture<Set<ValidationMessage>> validateNonblocking(JsonNode node, JsonNode rootNode, String at) {
         debug(logger, node, rootNode, at);
 
-        Set<ValidationMessage> errors = new LinkedHashSet<ValidationMessage>();
+        final Collection<CompletableFuture<Set<ValidationMessage>>> validateFutures = new ArrayList<>();
 
         for (Iterator<String> it = node.fieldNames(); it.hasNext(); ) {
             String pname = it.next();
@@ -62,17 +72,18 @@ public class DependenciesValidator extends BaseJsonValidator implements JsonVali
             if (deps != null && !deps.isEmpty()) {
                 for (String field : deps) {
                     if (node.get(field) == null) {
-                        errors.add(buildValidationMessage(at, propertyDeps.toString()));
+                        validateFutures.add(CompletableFuture.completedFuture(Collections.singleton(
+                                buildValidationMessage(at, propertyDeps.toString()))));
                     }
                 }
             }
             JsonSchema schema = schemaDeps.get(pname);
             if (schema != null) {
-                errors.addAll(schema.validateAsync(node, rootNode, at));
+                validateFutures.add(schema.validateNonblocking(node, rootNode, at));
             }
         }
 
-        return Collections.unmodifiableSet(errors);
+        return this.combineValidateFutures(validateFutures);
     }
 
 }

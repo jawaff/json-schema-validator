@@ -16,15 +16,17 @@
 
 package com.networknt.schema;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Set;
+import com.fasterxml.jackson.databind.JsonNode;
 
 public class ItemsValidator extends BaseJsonValidator implements JsonValidator {
     private static final Logger logger = LoggerFactory.getLogger(ItemsValidator.class);
@@ -58,48 +60,54 @@ public class ItemsValidator extends BaseJsonValidator implements JsonValidator {
         parseErrorCode(getValidatorType().getErrorCodeKey());
     }
 
-    public Set<ValidationMessage> validateAsync(JsonNode node, JsonNode rootNode, String at) {
+    public CompletableFuture<Set<ValidationMessage>> validateNonblocking(JsonNode node, JsonNode rootNode, String at) {
         debug(logger, node, rootNode, at);
-
-        Set<ValidationMessage> errors = new LinkedHashSet<ValidationMessage>();
 
         if (!node.isArray() && !config.isTypeLoose()) {
             // ignores non-arrays
-            return errors;
+            return CompletableFuture.completedFuture(Collections.emptySet());
         }
-        if (node.isArray()) {
-            int i = 0;
-            for (JsonNode n : node) {
-                doValidate(errors, i, n, rootNode, at);
-                i++;
+        
+        return CompletableFuture.supplyAsync(() -> {
+            final Collection<CompletableFuture<Set<ValidationMessage>>> validateFutures;
+            if (node.isArray()) {
+                validateFutures = new ArrayList<>();
+                int i = 0;
+                for (JsonNode n : node) {
+                    validateFutures.addAll(doValidate(i, n, rootNode, at));
+                    i++;
+                }
+            } else {
+                validateFutures = doValidate(0, node, rootNode, at);
             }
-        } else {
-            doValidate(errors, 0, node, rootNode, at);
-        }
-        return Collections.unmodifiableSet(errors);
+            return this.combineValidateFutures(validateFutures);
+        }, this.validationContext.getExecutor())
+                .thenCompose(future -> future);
     }
 
-    private void doValidate(Set<ValidationMessage> errors, int i, JsonNode node, JsonNode rootNode, String at) {
+    private Collection<CompletableFuture<Set<ValidationMessage>>> doValidate(int i, JsonNode node, JsonNode rootNode, String at) {
+        final Collection<CompletableFuture<Set<ValidationMessage>>> validateFutures = new ArrayList<>();
         if (schema != null) {
             // validate with item schema (the whole array has the same item
             // schema)
-            errors.addAll(schema.validateAsync(node, rootNode, at + "[" + i + "]"));
+            validateFutures.add(schema.validateNonblocking(node, rootNode, at + "[" + i + "]"));
         }
 
         if (tupleSchema != null) {
             if (i < tupleSchema.size()) {
                 // validate against tuple schema
-                errors.addAll(tupleSchema.get(i).validateAsync(node, rootNode, at + "[" + i + "]"));
+                validateFutures.add(tupleSchema.get(i).validateNonblocking(node, rootNode, at + "[" + i + "]"));
             } else {
                 if (additionalSchema != null) {
                     // validate against additional item schema
-                    errors.addAll(additionalSchema.validateAsync(node, rootNode, at + "[" + i + "]"));
+                    validateFutures.add(additionalSchema.validateNonblocking(node, rootNode, at + "[" + i + "]"));
                 } else if (!additionalItems) {
                     // no additional item allowed, return error
-                    errors.add(buildValidationMessage(at, "" + i));
+                    validateFutures.add(CompletableFuture.completedFuture(Collections.singleton(buildValidationMessage(at, "" + i))));
                 }
             }
         }
+        return validateFutures;
     }
 
 }

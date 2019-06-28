@@ -23,7 +23,7 @@ import org.slf4j.LoggerFactory;
 import java.util.Collections;
 import java.util.Set;
 
-public class MinLengthValidator extends BaseJsonValidator implements JsonValidator {
+public class MinLengthValidator extends BaseAsyncJsonValidator implements JsonValidator {
     private static final Logger logger = LoggerFactory.getLogger(MinLengthValidator.class);
 
     private int minLength;
@@ -38,7 +38,7 @@ public class MinLengthValidator extends BaseJsonValidator implements JsonValidat
         parseErrorCode(getValidatorType().getErrorCodeKey());
     }
 
-    public Set<ValidationMessage> validateAsync(JsonNode node, JsonNode rootNode, String at) {
+    public Set<ValidationMessage> validateBlocking(JsonNode node, JsonNode rootNode, String at) {
         debug(logger, node, rootNode, at);
 
         JsonType nodeType = TypeFactory.getValueNodeType(node);

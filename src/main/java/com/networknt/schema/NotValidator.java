@@ -16,12 +16,14 @@
 
 package com.networknt.schema;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import java.util.Collections;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Collections;
-import java.util.Set;
+import com.fasterxml.jackson.databind.JsonNode;
 
 public class NotValidator extends BaseJsonValidator implements JsonValidator {
     private static final Logger logger = LoggerFactory.getLogger(RequiredValidator.class);
@@ -35,14 +37,14 @@ public class NotValidator extends BaseJsonValidator implements JsonValidator {
         parseErrorCode(getValidatorType().getErrorCodeKey());
     }
 
-    public Set<ValidationMessage> validateAsync(JsonNode node, JsonNode rootNode, String at) {
+    @Override
+    public CompletableFuture<Set<ValidationMessage>> validateNonblocking(JsonNode node, JsonNode rootNode, String at) {
         debug(logger, node, rootNode, at);
 
-        Set<ValidationMessage> errors = schema.validateAsync(node, rootNode, at);
-        if (errors.isEmpty()) {
-            return Collections.singleton(buildValidationMessage(at, schema.toString()));
-        }
-        return Collections.emptySet();
+        return schema.validateNonblocking(node, rootNode, at)
+                .thenApply(errors -> errors.isEmpty() 
+                        ? Collections.singleton(buildValidationMessage(at, schema.toString()))
+                        : Collections.emptySet());
     }
 
 }

@@ -24,7 +24,7 @@ import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.Set;
 
-public class MultipleOfValidator extends BaseJsonValidator implements JsonValidator {
+public class MultipleOfValidator extends BaseAsyncJsonValidator implements JsonValidator {
     private static final Logger logger = LoggerFactory.getLogger(MultipleOfValidator.class);
 
     private double divisor = 0;
@@ -39,7 +39,7 @@ public class MultipleOfValidator extends BaseJsonValidator implements JsonValida
         parseErrorCode(getValidatorType().getErrorCodeKey());
     }
 
-    public Set<ValidationMessage> validateAsync(JsonNode node, JsonNode rootNode, String at) {
+    public Set<ValidationMessage> validateBlocking(JsonNode node, JsonNode rootNode, String at) {
         debug(logger, node, rootNode, at);
 
         if (node.isNumber()) {

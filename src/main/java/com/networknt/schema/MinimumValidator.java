@@ -25,7 +25,7 @@ import java.math.BigInteger;
 import java.util.Collections;
 import java.util.Set;
 
-public class MinimumValidator extends BaseJsonValidator implements JsonValidator {
+public class MinimumValidator extends BaseAsyncJsonValidator implements JsonValidator {
     private static final Logger logger = LoggerFactory.getLogger(MinimumValidator.class);
     private static final String PROPERTY_EXCLUSIVE_MINIMUM = "exclusiveMinimum";
 
@@ -94,7 +94,7 @@ public class MinimumValidator extends BaseJsonValidator implements JsonValidator
         }
     }
 
-    public Set<ValidationMessage> validateAsync(JsonNode node, JsonNode rootNode, String at) {
+    public Set<ValidationMessage> validateBlocking(JsonNode node, JsonNode rootNode, String at) {
         debug(logger, node, rootNode, at);
 
         if (!TypeValidator.isNumber(node, config.isTypeLoose())) {

@@ -33,7 +33,7 @@ public class NonValidationKeyword extends AbstractKeyword {
         }
 
         @Override
-        public CompletableFuture<Set<ValidationMessage>> validateAsync(JsonNode node, JsonNode rootNode, String at) {
+        public CompletableFuture<Set<ValidationMessage>> validateNonblocking(JsonNode node, JsonNode rootNode, String at) {
             return CompletableFuture.completedFuture(Collections.emptySet());
         }
     }

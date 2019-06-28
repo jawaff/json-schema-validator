@@ -111,7 +111,7 @@ public class AdditionalPropertiesValidator extends BaseJsonValidator implements 
                         }
                     }
                 }
-                return this.waitForValidates(validateFutures);
+                return this.combineValidateFutures(validateFutures);
             }, this.validationContext.getExecutor())
                     .thenCompose(future -> future);
             
