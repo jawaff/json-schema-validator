@@ -19,6 +19,8 @@ package com.networknt.schema;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 
 import com.fasterxml.jackson.databind.JsonNode;
 
@@ -27,8 +29,22 @@ public abstract class AbstractJsonValidator implements JsonValidator {
     protected AbstractJsonValidator(String keyword) {
         this.keyword = keyword;
     }
+
+    @Override
     public Set<ValidationMessage> validate(JsonNode node) {
-        return validate(node, node, AT_ROOT);
+        try {
+            return validateNonblocking(node, node, AT_ROOT).get();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException();
+        } catch (ExecutionException e) {
+            throw new IllegalStateException("Failed validation", e);
+        }
+    }
+    
+    @Override
+    public CompletableFuture<Set<ValidationMessage>> validateNonblocking(JsonNode node) {
+        return validateNonblocking(node, node, AT_ROOT);
     }
     
     protected ValidationMessage buildValidationMessage(ErrorMessageType errorMessageType, String at, String... arguments) {

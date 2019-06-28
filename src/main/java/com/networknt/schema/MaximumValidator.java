@@ -90,7 +90,7 @@ public class MaximumValidator extends BaseJsonValidator implements JsonValidator
         }
     }
 
-    public Set<ValidationMessage> validate(JsonNode node, JsonNode rootNode, String at) {
+    public Set<ValidationMessage> validateAsync(JsonNode node, JsonNode rootNode, String at) {
         debug(logger, node, rootNode, at);
 
         if (!TypeValidator.isNumber(node, config.isTypeLoose())) {

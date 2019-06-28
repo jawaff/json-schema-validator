@@ -17,7 +17,12 @@
 package com.networknt.schema;
 
 import java.net.URI;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
@@ -30,6 +35,7 @@ public abstract class BaseJsonValidator implements JsonValidator {
     private JsonSchema parentSchema;
     private boolean suppressSubSchemaRetrieval;
     private ValidatorTypeCode validatorType;
+    protected ValidationContext validationContext;
     private ErrorMessageType errorMessageType;
     /**
      * SchemaValidatorsConfig can only get and set in validationContext
@@ -37,20 +43,21 @@ public abstract class BaseJsonValidator implements JsonValidator {
     protected SchemaValidatorsConfig config;
 
     
-    public BaseJsonValidator(String schemaPath, JsonNode schemaNode, JsonSchema parentSchema,
+    protected BaseJsonValidator(String schemaPath, JsonNode schemaNode, JsonSchema parentSchema,
                              ValidatorTypeCode validatorType, ValidationContext validationContext) {
-    	this(schemaPath, schemaNode, parentSchema, validatorType, false );
+    	this(schemaPath, schemaNode, parentSchema, validatorType, validationContext, false);
     	this.config = validationContext.getConfig() == null ? new SchemaValidatorsConfig() : validationContext.getConfig();
     }
 
-    public BaseJsonValidator(String schemaPath, JsonNode schemaNode, JsonSchema parentSchema,
-                             ValidatorTypeCode validatorType, boolean suppressSubSchemaRetrieval) {
+    protected BaseJsonValidator(String schemaPath, JsonNode schemaNode, JsonSchema parentSchema,
+                             ValidatorTypeCode validatorType, ValidationContext validationContext, boolean suppressSubSchemaRetrieval) {
         this.errorMessageType = validatorType;
         this.schemaPath = schemaPath;
         this.schemaNode = schemaNode;
         this.parentSchema = parentSchema;
         this.validatorType = validatorType;
         this.suppressSubSchemaRetrieval = suppressSubSchemaRetrieval;
+        this.validationContext = validationContext;
     }
 
     protected String getSchemaPath() {
@@ -90,8 +97,48 @@ public abstract class BaseJsonValidator implements JsonValidator {
         }
     }
 
+    @Override
     public Set<ValidationMessage> validate(JsonNode node) {
-        return validate(node, node, AT_ROOT);
+        try {
+            return validateNonblocking(node, node, AT_ROOT).get();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException();
+        } catch (ExecutionException e) {
+            throw new IllegalStateException("Failed validation", e);
+        }
+    }
+
+    @Override
+    public CompletableFuture<Set<ValidationMessage>> validateNonblocking(JsonNode node) {
+        return validateNonblocking(node, node, AT_ROOT);
+    }
+
+    /**
+     * The given futures will be waited on. After they all complete, the results will be combined and returned.
+     * @param validateFutures The validate futures to wait for.
+     * @return A future for the merged results of the given futures.
+     */
+    protected CompletableFuture<Set<ValidationMessage>> waitForValidates(
+            final Collection<CompletableFuture<Set<ValidationMessage>>> validateFutures) {
+        @SuppressWarnings("unchecked")
+        final CompletableFuture<Set<ValidationMessage>>[] futures = (CompletableFuture<Set<ValidationMessage>>[]) validateFutures.stream()
+                .toArray(CompletableFuture[]::new);
+        
+        return CompletableFuture.allOf(futures)
+                .thenApply(nothing -> Arrays.stream(futures)
+                        .map(future -> {
+                            try {
+                                return future.get();
+                            } catch (InterruptedException e) {
+                                Thread.currentThread().interrupt();
+                                throw new RuntimeException();
+                            } catch (ExecutionException e) {
+                                throw new IllegalStateException("Validation failed.", e);
+                            }
+                        })
+                        .flatMap(Set::stream)
+                        .collect(Collectors.toSet()));
     }
 
     protected boolean equals(double n1, double n2) {

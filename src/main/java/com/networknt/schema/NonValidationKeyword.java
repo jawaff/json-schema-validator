@@ -18,6 +18,7 @@ package com.networknt.schema;
 
 import java.util.Collections;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 
 import com.fasterxml.jackson.databind.JsonNode;
 
@@ -32,8 +33,8 @@ public class NonValidationKeyword extends AbstractKeyword {
         }
 
         @Override
-        public Set<ValidationMessage> validate(JsonNode node, JsonNode rootNode, String at) {
-            return Collections.emptySet();
+        public CompletableFuture<Set<ValidationMessage>> validateAsync(JsonNode node, JsonNode rootNode, String at) {
+            return CompletableFuture.completedFuture(Collections.emptySet());
         }
     }
 

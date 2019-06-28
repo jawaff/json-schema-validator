@@ -19,14 +19,18 @@ package com.networknt.schema;
 import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URLDecoder;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import com.fasterxml.jackson.databind.JsonNode;
 
@@ -38,7 +42,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 public class JsonSchema extends BaseJsonValidator {
     private static final Pattern intPattern = Pattern.compile("^[0-9]+$");
     protected final Map<String, JsonValidator> validators;
-    private final ValidationContext validationContext;
     
     /**
      * This is the current uri of this schema. This uri could refer to the uri of this schema's file
@@ -68,9 +71,7 @@ public class JsonSchema extends BaseJsonValidator {
 
     private JsonSchema(ValidationContext validationContext,  String schemaPath, URI currentUri, JsonNode schemaNode,
                JsonSchema parent, boolean suppressSubSchemaRetrieval) {
-        super(schemaPath, schemaNode, parent, null, suppressSubSchemaRetrieval);
-        this.validationContext = validationContext;
-        this.config = validationContext.getConfig();
+        super(schemaPath, schemaNode, parent, null, validationContext, suppressSubSchemaRetrieval);
         this.currentUri = this.combineCurrentUriWithIds(currentUri, schemaNode);
         this.validators = Collections.unmodifiableMap(this.read(schemaNode));
     }
@@ -158,12 +159,28 @@ public class JsonSchema extends BaseJsonValidator {
         return validators;
     }
 
-    public Set<ValidationMessage> validate(JsonNode jsonNode, JsonNode rootNode, String at) {
-        Set<ValidationMessage> errors = new LinkedHashSet<ValidationMessage>();
-        for (JsonValidator v : validators.values()) {
-            errors.addAll(v.validate(jsonNode, rootNode, at));
-        }
-        return errors;
+    @Override
+    public CompletableFuture<Set<ValidationMessage>> validateNonblocking(JsonNode jsonNode, JsonNode rootNode, String at) {
+        @SuppressWarnings("unchecked")
+        final CompletableFuture<Set<ValidationMessage>>[] futures = (CompletableFuture<Set<ValidationMessage>>[]) this.validators.values()
+                .stream()
+                .map(validator -> validator.validateNonblocking(jsonNode, rootNode, at))
+                .toArray(CompletableFuture[]::new);
+        
+        return CompletableFuture.allOf(futures)
+                .thenApply(nothing -> Arrays.stream(futures)
+                        .map(future -> {
+                            try {
+                                return future.get();
+                            } catch (InterruptedException e) {
+                                Thread.currentThread().interrupt();
+                                throw new RuntimeException();
+                            } catch (ExecutionException e) {
+                                throw new IllegalStateException("Validation failed.", e);
+                            }
+                        })
+                        .flatMap(Set::stream)
+                        .collect(Collectors.toSet()));
     }
 
     @Override
@@ -178,4 +195,10 @@ public class JsonSchema extends BaseJsonValidator {
 	public JsonValidator getRequiredValidator() {
 		return requiredValidator;
 	}
+
+    @Override
+    public CompletableFuture<Set<ValidationMessage>> validateNonblocking(JsonNode node, JsonNode rootNode, String at) {
+        // TODO Auto-generated method stub
+        return null;
+    }
 }

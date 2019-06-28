@@ -35,10 +35,10 @@ public class NotValidator extends BaseJsonValidator implements JsonValidator {
         parseErrorCode(getValidatorType().getErrorCodeKey());
     }
 
-    public Set<ValidationMessage> validate(JsonNode node, JsonNode rootNode, String at) {
+    public Set<ValidationMessage> validateAsync(JsonNode node, JsonNode rootNode, String at) {
         debug(logger, node, rootNode, at);
 
-        Set<ValidationMessage> errors = schema.validate(node, rootNode, at);
+        Set<ValidationMessage> errors = schema.validateAsync(node, rootNode, at);
         if (errors.isEmpty()) {
             return Collections.singleton(buildValidationMessage(at, schema.toString()));
         }

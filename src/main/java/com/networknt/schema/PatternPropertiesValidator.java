@@ -42,7 +42,7 @@ public class PatternPropertiesValidator extends BaseJsonValidator implements Jso
         }
     }
 
-    public Set<ValidationMessage> validate(JsonNode node, JsonNode rootNode, String at) {
+    public Set<ValidationMessage> validateAsync(JsonNode node, JsonNode rootNode, String at) {
         debug(logger, node, rootNode, at);
 
         Set<ValidationMessage> errors = new LinkedHashSet<ValidationMessage>();
@@ -58,7 +58,7 @@ public class PatternPropertiesValidator extends BaseJsonValidator implements Jso
             for (Map.Entry<Pattern, JsonSchema> entry : schemas.entrySet()) {
                 Matcher m = entry.getKey().matcher(name);
                 if (m.find()) {
-                    errors.addAll(entry.getValue().validate(n, rootNode, at + "." + name));
+                    errors.addAll(entry.getValue().validateAsync(n, rootNode, at + "." + name));
                 }
             }
         }

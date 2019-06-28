@@ -99,11 +99,11 @@ public class TypeValidator extends BaseJsonValidator implements JsonValidator {
         return true;
     }
 
-    public Set<ValidationMessage> validate(JsonNode node, JsonNode rootNode, String at) {
+    public Set<ValidationMessage> validateAsync(JsonNode node, JsonNode rootNode, String at) {
         debug(logger, node, rootNode, at);
 
         if (schemaType == JsonType.UNION) {
-            return unionTypeValidator.validate(node, rootNode, at);
+            return unionTypeValidator.validateAsync(node, rootNode, at);
         }
 
         if (!equalsToSchemaType(node)) {

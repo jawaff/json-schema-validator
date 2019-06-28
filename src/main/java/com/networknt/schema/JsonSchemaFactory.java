@@ -22,6 +22,8 @@ import java.net.URI;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -43,7 +45,10 @@ public class JsonSchemaFactory {
     
     
     public static class Builder {
-        private ObjectMapper objectMapper = new ObjectMapper();
+        private static final int THREAD_COUNT = 3;
+        
+        private ExecutorService executor;
+        private ObjectMapper objectMapper;
         private String defaultMetaSchemaURI;
         private final Map<String, URIFactory> uriFactoryMap = new HashMap<String, URIFactory>();
         private final Map<String, URIFetcher> uriFetcherMap = new HashMap<String, URIFetcher>();
@@ -70,6 +75,16 @@ public class JsonSchemaFactory {
                 this.uriFactoryMap.put(scheme, classpathURLFactory);
                 this.uriFetcherMap.put(scheme, classpathURLFetcher);
             }
+        }
+        
+        /**
+         * Note: The given executor is meant to allow validators to be executed in parallel.
+         * @param executor An executor for the validators to use.
+         * @return This builder.
+         */
+        public Builder executor(final ExecutorService executor) {
+            this.executor = executor;
+            return this;
         }
         
         public Builder objectMapper(final ObjectMapper objectMapper) {
@@ -130,8 +145,9 @@ public class JsonSchemaFactory {
         public JsonSchemaFactory build() {
             // create builtin keywords with (custom) formats.
             return new JsonSchemaFactory(
+                    executor == null ? Executors.newFixedThreadPool(THREAD_COUNT) : executor,
                     objectMapper == null ? new ObjectMapper() : objectMapper, 
-                    defaultMetaSchemaURI, 
+                    defaultMetaSchemaURI == null ? JsonMetaSchema.getDraftV4().getUri() : defaultMetaSchemaURI, 
                     new URISchemeFactory(uriFactoryMap),
                     new URISchemeFetcher(uriFetcherMap), 
                     jsonMetaSchemas,
@@ -140,6 +156,7 @@ public class JsonSchemaFactory {
         }
     }
     
+    private final ExecutorService executor;
     private final ObjectMapper mapper;
     private final String defaultMetaSchemaURI;
     private final URISchemeFactory uriFactory;
@@ -148,12 +165,16 @@ public class JsonSchemaFactory {
     private final Map<String, String> uriMap;
 
     private JsonSchemaFactory(
+            final ExecutorService executor,
             final ObjectMapper mapper, 
             final String defaultMetaSchemaURI, 
             final URISchemeFactory uriFactory, 
             final URISchemeFetcher uriFetcher, 
             final Map<String, JsonMetaSchema> jsonMetaSchemas, 
             final Map<String, String> uriMap) {
+        if (executor == null) {
+            throw new IllegalArgumentException("ExecutorService must not be null");
+        }
         if (mapper == null) {
             throw new IllegalArgumentException("ObjectMapper must not be null");
         }
@@ -175,6 +196,7 @@ public class JsonSchemaFactory {
         if (uriMap == null) {
             throw new IllegalArgumentException("URL Mappings must not be null");
         }
+        this.executor = executor;
         this.mapper = mapper;
         this.defaultMetaSchemaURI = defaultMetaSchemaURI;
         this.uriFactory = uriFactory;
@@ -233,7 +255,7 @@ public class JsonSchemaFactory {
 
     protected ValidationContext createValidationContext(final JsonNode schemaNode) {
         final JsonMetaSchema jsonMetaSchema = findMetaSchemaForSchema(schemaNode);
-        return new ValidationContext(this.uriFactory, jsonMetaSchema, this);
+        return new ValidationContext(this.executor, this.uriFactory, jsonMetaSchema, this);
     }
 
     private JsonMetaSchema findMetaSchemaForSchema(final JsonNode schemaNode) {
@@ -293,7 +315,7 @@ public class JsonSchemaFactory {
                 final JsonMetaSchema jsonMetaSchema = findMetaSchemaForSchema(schemaNode);
 
                 if (idMatchesSourceUri(jsonMetaSchema, schemaNode, schemaUri)) {
-                    return new JsonSchema(new ValidationContext(this.uriFactory, jsonMetaSchema, this), mappedUri, schemaNode, true /*retrieved via id, resolving will not change anything*/);
+                    return new JsonSchema(new ValidationContext(this.executor, this.uriFactory, jsonMetaSchema, this), mappedUri, schemaNode, true /*retrieved via id, resolving will not change anything*/);
                 }
 
                 return newJsonSchema(mappedUri, schemaNode, config);

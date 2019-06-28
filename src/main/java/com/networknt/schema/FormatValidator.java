@@ -16,16 +16,17 @@
 
 package com.networknt.schema;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.regex.PatternSyntaxException;
 
-public class FormatValidator extends BaseJsonValidator implements JsonValidator {
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.fasterxml.jackson.databind.JsonNode;
+
+public class FormatValidator extends BaseAsyncJsonValidator implements JsonValidator {
     private static final Logger logger = LoggerFactory.getLogger(FormatValidator.class);
 
     private final Format format;
@@ -35,17 +36,17 @@ public class FormatValidator extends BaseJsonValidator implements JsonValidator 
         this.format = format;
         parseErrorCode(getValidatorType().getErrorCodeKey());
     }
-
-    public Set<ValidationMessage> validate(JsonNode node, JsonNode rootNode, String at) {
+    
+    @Override
+    public Set<ValidationMessage> validateBlocking(JsonNode node, JsonNode rootNode, String at) {
         debug(logger, node, rootNode, at);
-
-        Set<ValidationMessage> errors = new LinkedHashSet<ValidationMessage>();
 
         JsonType nodeType = TypeFactory.getValueNodeType(node);
         if (nodeType != JsonType.STRING) {
-            return errors;
+            return Collections.emptySet();
         }
 
+        Set<ValidationMessage> errors = new LinkedHashSet<ValidationMessage>();
         if (format != null) {
             try {
                 if (!format.matches(node.textValue())) {
@@ -59,5 +60,4 @@ public class FormatValidator extends BaseJsonValidator implements JsonValidator 
 
         return Collections.unmodifiableSet(errors);
     }
-
 }

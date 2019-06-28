@@ -58,7 +58,7 @@ public class ItemsValidator extends BaseJsonValidator implements JsonValidator {
         parseErrorCode(getValidatorType().getErrorCodeKey());
     }
 
-    public Set<ValidationMessage> validate(JsonNode node, JsonNode rootNode, String at) {
+    public Set<ValidationMessage> validateAsync(JsonNode node, JsonNode rootNode, String at) {
         debug(logger, node, rootNode, at);
 
         Set<ValidationMessage> errors = new LinkedHashSet<ValidationMessage>();
@@ -83,17 +83,17 @@ public class ItemsValidator extends BaseJsonValidator implements JsonValidator {
         if (schema != null) {
             // validate with item schema (the whole array has the same item
             // schema)
-            errors.addAll(schema.validate(node, rootNode, at + "[" + i + "]"));
+            errors.addAll(schema.validateAsync(node, rootNode, at + "[" + i + "]"));
         }
 
         if (tupleSchema != null) {
             if (i < tupleSchema.size()) {
                 // validate against tuple schema
-                errors.addAll(tupleSchema.get(i).validate(node, rootNode, at + "[" + i + "]"));
+                errors.addAll(tupleSchema.get(i).validateAsync(node, rootNode, at + "[" + i + "]"));
             } else {
                 if (additionalSchema != null) {
                     // validate against additional item schema
-                    errors.addAll(additionalSchema.validate(node, rootNode, at + "[" + i + "]"));
+                    errors.addAll(additionalSchema.validateAsync(node, rootNode, at + "[" + i + "]"));
                 } else if (!additionalItems) {
                     // no additional item allowed, return error
                     errors.add(buildValidationMessage(at, "" + i));

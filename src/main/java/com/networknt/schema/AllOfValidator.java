@@ -16,15 +16,17 @@
 
 package com.networknt.schema;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Set;
+import com.fasterxml.jackson.databind.JsonNode;
 
 public class AllOfValidator extends BaseJsonValidator implements JsonValidator {
     private static final Logger logger = LoggerFactory.getLogger(AllOfValidator.class);
@@ -39,16 +41,15 @@ public class AllOfValidator extends BaseJsonValidator implements JsonValidator {
         }
     }
 
-    public Set<ValidationMessage> validate(JsonNode node, JsonNode rootNode, String at) {
+    @Override
+    public CompletableFuture<Set<ValidationMessage>> validateNonblocking(JsonNode node, JsonNode rootNode, String at) {
         debug(logger, node, rootNode, at);
 
-        Set<ValidationMessage> errors = new LinkedHashSet<ValidationMessage>();
+        final Collection<CompletableFuture<Set<ValidationMessage>>> validateFutures = this.schemas.stream()
+                .map(schema -> validateNonblocking(node, rootNode, at))
+                .collect(Collectors.toList());
 
-        for (JsonSchema schema : schemas) {
-            errors.addAll(schema.validate(node, rootNode, at));
-        }
-
-        return Collections.unmodifiableSet(errors);
+        return this.waitForValidates(validateFutures);
     }
 
 }

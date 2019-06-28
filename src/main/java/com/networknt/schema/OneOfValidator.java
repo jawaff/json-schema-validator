@@ -128,7 +128,7 @@ public class OneOfValidator extends BaseJsonValidator implements JsonValidator {
         parseErrorCode(getValidatorType().getErrorCodeKey());
     }
 
-    public Set<ValidationMessage> validate(JsonNode node, JsonNode rootNode, String at) {
+    public Set<ValidationMessage> validateAsync(JsonNode node, JsonNode rootNode, String at) {
         debug(logger, node, rootNode, at);
         
         // this validator considers a missing node as an error
@@ -146,7 +146,7 @@ public class OneOfValidator extends BaseJsonValidator implements JsonValidator {
                 continue;
             }
             JsonSchema schema = validator.schema;
-        	    Set<ValidationMessage> schemaErrors = schema.validate(node, rootNode, at);
+        	    Set<ValidationMessage> schemaErrors = schema.validateAsync(node, rootNode, at);
             if (schemaErrors.isEmpty()) {
                 numberOfValidSchema++;
                 errors = new LinkedHashSet<ValidationMessage>();

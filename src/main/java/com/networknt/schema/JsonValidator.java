@@ -16,36 +16,50 @@
 
 package com.networknt.schema;
 
-import com.fasterxml.jackson.databind.JsonNode;
-
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+
+import com.fasterxml.jackson.databind.JsonNode;
 
 /**
  * Standard json validator interface, implemented by all validators and JsonSchema.
  */
 public interface JsonValidator {
-    public static final String AT_ROOT = "$";
-    
+    public static final String AT_ROOT = "$";    
 
     /**
      * Validate the given root JsonNode, starting at the root of the data path.
      *
-     * @param rootNode JsonNode
+     * @param rootNode The root node of the json being validated.
      * @return A list of ValidationMessage if there is any validation error, or an empty
      * list if there is no error.
      */
     Set<ValidationMessage> validate(JsonNode rootNode);
 
     /**
-     * Validate the given JsonNode, the given node is the child node of the root node at given
-     * data path.
+     * Validate the given root JsonNode, starting at the root of the data path.
+     * 
+     * Note: It is intended that the implementations delegate their processing to a thread
+     * in the {@link ValidationContext}'s {@link ExecutorService}.
      *
-     * @param node     JsonNode
-     * @param rootNode JsonNode
-     * @param at       String
+     * @param rootNode The root node of the json being validated.
      * @return A list of ValidationMessage if there is any validation error, or an empty
      * list if there is no error.
      */
-    Set<ValidationMessage> validate(JsonNode node, JsonNode rootNode, String at);
+    CompletableFuture<Set<ValidationMessage>> validateNonblocking(JsonNode rootNode);
 
+    /**
+     * Validate the given JsonNode, the given node is the child node of the root node at given
+     * data path.
+     * 
+     * Note: It is intended that the implementations delegate their processing to a thread
+     * in the {@link ValidationContext}'s {@link ExecutorService}.
+     *
+     * @param node     The current node within the json being validated.
+     * @param rootNode The root node of the json being validated.
+     * @param at       The path of the current node within the json being validated.
+     * @return A list of ValidationMessage if there is any validation error, or an empty
+     * list if there is no error.
+     */
+    CompletableFuture<Set<ValidationMessage>> validateNonblocking(JsonNode node, JsonNode rootNode, String at);
 }

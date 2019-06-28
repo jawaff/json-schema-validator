@@ -17,10 +17,13 @@
 package com.networknt.schema;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,14 +43,18 @@ public class AnyOfValidator extends BaseJsonValidator implements JsonValidator {
         }
     }
 
-    public Set<ValidationMessage> validate(JsonNode node, JsonNode rootNode, String at) {
+    @Override
+    public CompletableFuture<Set<ValidationMessage>> validateNonblocking(JsonNode node, JsonNode rootNode, String at) {
         debug(logger, node, rootNode, at);
 
-        Set<ValidationMessage> allErrors = new LinkedHashSet<ValidationMessage>();
-        String typeValidatorName = "anyOf/type";
-        List<String> expectedTypeList = new ArrayList<String>();
+        @SuppressWarnings("unchecked")
+        final CompletableFuture<Set<ValidationMessage>>[] futures = (CompletableFuture<Set<ValidationMessage>>[]) 
+                new CompletableFuture[this.schemas.size()];
+        final String typeValidatorName = "anyOf/type";
+        final List<String> expectedTypeList = new ArrayList<String>();
 
-        for (JsonSchema schema : schemas) {
+        for (int i = 0; i < this.schemas.size(); i++) {
+            final JsonSchema schema = this.schemas.get(i);
             if (schema.validators.containsKey(typeValidatorName)) {
                 TypeValidator typeValidator = ((TypeValidator) schema.validators.get(typeValidatorName));
                 //If schema has type validator and node type doesn't match with schemaType then ignore it
@@ -57,16 +64,32 @@ public class AnyOfValidator extends BaseJsonValidator implements JsonValidator {
                     continue;
                 }
             }
-            Set<ValidationMessage> errors = schema.validate(node, rootNode, at);
-            if (errors.isEmpty()) {
-                return errors;
+            
+            // There's no use in validating if we're returning an error based on this type list.
+            if (!expectedTypeList.isEmpty()) {
+                futures[i] = schema.validateNonblocking(node, rootNode, at);
             }
-            allErrors.addAll(errors);
         }
         if (!expectedTypeList.isEmpty()) {
-            return Collections.singleton(buildValidationMessage(at, expectedTypeList.toArray(new String[expectedTypeList.size()])));
+            return CompletableFuture.completedFuture(Collections.singleton(
+                    buildValidationMessage(at, expectedTypeList.toArray(new String[expectedTypeList.size()]))));
         }
-        return Collections.unmodifiableSet(allErrors);
+        
+        return CompletableFuture.allOf(futures)
+                .thenApply(nothing -> Arrays.stream(futures)
+                        .map(future -> {
+                            try {
+                                return future.get();
+                            } catch (InterruptedException e) {
+                                Thread.currentThread().interrupt();
+                                throw new RuntimeException();
+                            } catch (ExecutionException e) {
+                                throw new IllegalStateException("Validation failed.", e);
+                            }
+                        }))
+                .thenApply(errorSets -> errorSets.anyMatch(Set::isEmpty) 
+                        ? Collections.emptySet() 
+                        : errorSets.flatMap(Set::stream)
+                                .collect(Collectors.toSet()));
     }
-
 }

@@ -101,11 +101,11 @@ public class RefValidator extends BaseJsonValidator implements JsonValidator {
         return schemaUri;
     }
 
-    public Set<ValidationMessage> validate(JsonNode node, JsonNode rootNode, String at) {
+    public Set<ValidationMessage> validateAsync(JsonNode node, JsonNode rootNode, String at) {
         debug(logger, node, rootNode, at);
 
         if (schema != null) {
-            return schema.validate(node, rootNode, at);
+            return schema.validateAsync(node, rootNode, at);
         } else {
             return Collections.emptySet();
         }

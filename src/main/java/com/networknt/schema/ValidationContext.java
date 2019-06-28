@@ -16,16 +16,26 @@
 
 package com.networknt.schema;
 
+import java.util.concurrent.ExecutorService;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.networknt.schema.uri.URIFactory;
 
 public class ValidationContext {
+    private final ExecutorService executor;
     private final URIFactory uriFactory;
     private final JsonMetaSchema metaSchema;
     private final JsonSchemaFactory jsonSchemaFactory;
     private SchemaValidatorsConfig config;
     
-    public ValidationContext(URIFactory uriFactory, JsonMetaSchema metaSchema, JsonSchemaFactory jsonSchemaFactory) {
+    public ValidationContext(
+            ExecutorService executor, 
+            URIFactory uriFactory, 
+            JsonMetaSchema metaSchema, 
+            JsonSchemaFactory jsonSchemaFactory) {
+        if (executor == null) {
+            throw new IllegalArgumentException("ExecutorService must not be null");
+        }
         if (uriFactory == null) {
             throw new IllegalArgumentException("URIFactory must not be null");
         }
@@ -35,6 +45,7 @@ public class ValidationContext {
         if (jsonSchemaFactory == null) {
             throw new IllegalArgumentException("JsonSchemaFactory must not be null");
         }
+        this.executor = executor;
         this.uriFactory = uriFactory;
         this.metaSchema = metaSchema;
         this.jsonSchemaFactory = jsonSchemaFactory;
@@ -43,6 +54,10 @@ public class ValidationContext {
     public JsonValidator newValidator(String schemaPath, String keyword /* keyword */, JsonNode schemaNode,
                                       JsonSchema parentSchema) {
         return metaSchema.newValidator(this, schemaPath, keyword, schemaNode, parentSchema);
+    }
+    
+    public ExecutorService getExecutor() {
+        return this.executor;
     }
     
     public URIFactory getURIFactory() {

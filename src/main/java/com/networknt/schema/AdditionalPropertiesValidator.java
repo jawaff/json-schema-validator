@@ -17,12 +17,13 @@
 package com.networknt.schema;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -71,41 +72,51 @@ public class AdditionalPropertiesValidator extends BaseJsonValidator implements 
         parseErrorCode(getValidatorType().getErrorCodeKey());
     }
 
-    public Set<ValidationMessage> validate(JsonNode node, JsonNode rootNode, String at) {
+    @Override
+    public CompletableFuture<Set<ValidationMessage>> validateNonblocking(JsonNode node, JsonNode rootNode, String at) {
         if (logger.isDebugEnabled()) debug(logger, node, rootNode, at);
-
-        Set<ValidationMessage> errors = new LinkedHashSet<ValidationMessage>();
+        
+        final CompletableFuture<Set<ValidationMessage>> validateFuture;
         if (!node.isObject()) {
             // ignore no object
-            return errors;
+            validateFuture = CompletableFuture.completedFuture(Collections.emptySet());
         }
-
-        for (Iterator<String> it = node.fieldNames(); it.hasNext(); ) {
-            String pname = it.next();
-            // skip the context items
-            if (pname.startsWith("#")) {
-                continue;
-            }
-            boolean handledByPatternProperties = false;
-            for (Pattern pattern : patternProperties) {
-                Matcher m = pattern.matcher(pname);
-                if (m.find()) {
-                    handledByPatternProperties = true;
-                    break;
-                }
-            }
-
-            if (!allowedProperties.contains(pname) && !handledByPatternProperties) {
-                if (!allowAdditionalProperties) {
-                    errors.add(buildValidationMessage(at, pname));
-                } else {
-                    if (additionalPropertiesSchema != null) {
-                        errors.addAll(additionalPropertiesSchema.validate(node.get(pname), rootNode, at + "." + pname));
+        else {
+            validateFuture = CompletableFuture.supplyAsync(() -> {
+                final Collection<CompletableFuture<Set<ValidationMessage>>> validateFutures = new ArrayList<>();
+                for (final Iterator<String> it = node.fieldNames(); it.hasNext(); ) {
+                    String pname = it.next();
+                    // skip the context items
+                    if (pname.startsWith("#")) {
+                        continue;
+                    }
+                    boolean handledByPatternProperties = false;
+                    for (Pattern pattern : patternProperties) {
+                        Matcher m = pattern.matcher(pname);
+                        if (m.find()) {
+                            handledByPatternProperties = true;
+                            break;
+                        }
+                    }
+                
+                    if (!allowedProperties.contains(pname) && !handledByPatternProperties) {
+                        if (!allowAdditionalProperties) {
+                            validateFutures.add(
+                                    CompletableFuture.completedFuture(Collections.singleton(buildValidationMessage(at, pname))));
+                        } else {
+                            if (additionalPropertiesSchema != null) {
+                                validateFutures.add(
+                                        additionalPropertiesSchema.validateNonblocking(node.get(pname), rootNode, at + "." + pname));
+                            }
+                        }
                     }
                 }
-            }
+                return this.waitForValidates(validateFutures);
+            }, this.validationContext.getExecutor())
+                    .thenCompose(future -> future);
+            
         }
-        return Collections.unmodifiableSet(errors);
+        return validateFuture;
     }
 
 }

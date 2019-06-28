@@ -21,6 +21,7 @@ import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 
 import static org.junit.Assert.*;
 import org.junit.Test;
@@ -58,14 +59,15 @@ public class CustomMetaSchemaTest {
             }
 
             @Override
-            public Set<ValidationMessage> validate(JsonNode node, JsonNode rootNode, String at) {
+            public CompletableFuture<Set<ValidationMessage>> validateAsync(JsonNode node, JsonNode rootNode, String at) {
                 String value = node.asText();
                 int idx = enumValues.indexOf(value);
                 if (idx < 0) {
                     throw new IllegalArgumentException("value not found in enum. value: " + value  + " enum: " + enumValues);
                 }
                 String valueName = enumNames.get(idx);
-                return fail(CustomErrorMessageType.of("tests.example.enumNames", new MessageFormat("{0}: enumName is {1}")), at, valueName);
+                return CompletableFuture.completedFuture(
+                        fail(CustomErrorMessageType.of("tests.example.enumNames", new MessageFormat("{0}: enumName is {1}")), at, valueName));
             }
         }
 
