@@ -33,6 +33,7 @@ import org.junit.Test;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.networknt.schema.uri.ClasspathURLFactory;
 
 import io.undertow.Undertow;
 import io.undertow.server.handlers.resource.FileResourceManager;
@@ -70,7 +71,7 @@ public class JsonSchemaTest {
     }
 
     private void runTestFile(String testCaseFile) throws Exception {
-        final URI testCaseFileUri = URI.create("classpath:" + testCaseFile);
+        final URI testCaseFileUri = new ClasspathURLFactory().create("classpath:" + testCaseFile);
         InputStream in = Thread.currentThread().getContextClassLoader()
                 .getResourceAsStream(testCaseFile);
         ArrayNode testCases = (ArrayNode) mapper.readTree(in);
@@ -96,13 +97,16 @@ public class JsonSchemaTest {
                     if (test.get("valid").asBoolean()) {
                         if (!errors.isEmpty()) {
                             System.out.println("---- test case filed ----");
+                            System.out.println("test case: " + testCaseFile);
                             System.out.println("schema: " + schema.toString());
                             System.out.println("data: " + test.get("data"));
+                            System.out.println("errors: " + errors.toString());
                         }
                         Assert.assertEquals(0, errors.size());
                     } else {
                         if (errors.isEmpty()) {
                             System.out.println("---- test case filed ----");
+                            System.out.println("test case: " + testCaseFile);
                             System.out.println("schema: " + schema);
                             System.out.println("data: " + test.get("data"));
                         }

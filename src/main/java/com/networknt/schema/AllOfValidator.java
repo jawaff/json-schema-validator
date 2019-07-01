@@ -46,7 +46,7 @@ public class AllOfValidator extends BaseJsonValidator implements JsonValidator {
         debug(logger, node, rootNode, at);
 
         final Collection<CompletableFuture<Set<ValidationMessage>>> validateFutures = this.schemas.stream()
-                .map(schema -> validateNonblocking(node, rootNode, at))
+                .map(schema -> schema.validateNonblocking(node, rootNode, at))
                 .collect(Collectors.toList());
 
         return this.combineValidateFutures(validateFutures);

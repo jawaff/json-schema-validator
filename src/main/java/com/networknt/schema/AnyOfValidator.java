@@ -62,7 +62,7 @@ public class AnyOfValidator extends BaseJsonValidator implements JsonValidator {
             }
             
             // There's no use in validating if we're returning an error based on this type list.
-            if (!expectedTypeList.isEmpty()) {
+            if (expectedTypeList.isEmpty()) {
                 validateFutures.add(schema.validateNonblocking(node, rootNode, at));
             }
         }
