@@ -17,6 +17,7 @@
 package com.networknt.schema;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -24,6 +25,8 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -128,16 +131,17 @@ public class OneOfValidator extends BaseJsonValidator implements JsonValidator {
         parseErrorCode(getValidatorType().getErrorCodeKey());
     }
 
-    public Set<ValidationMessage> validateAsync(JsonNode node, JsonNode rootNode, String at) {
+    /**
+     * When one of the child validators returns no  errors, then this validator must return no messages.
+     * When more than one of the child validators returns no errors, then this validate returns an error.
+     * If all validator with an error, then all of those errors should be returned by this valditor.
+     * 
+     * {@inheritDoc}
+     */
+    public CompletableFuture<Set<ValidationMessage>> validateNonblocking(JsonNode node, JsonNode rootNode, String at) {
         debug(logger, node, rootNode, at);
         
-        // this validator considers a missing node as an error
-        // set it here to true, however re-set it to its original value upon finishing the validation
-        boolean missingNodeAsError = config.isMissingNodeAsError();
-        config.setMissingNodeAsError(true);
-        
-        int numberOfValidSchema = 0;
-        Set<ValidationMessage> errors = new LinkedHashSet<ValidationMessage>();
+        final Collection<CompletableFuture<Set<ValidationMessage>>> validateFutures = new ArrayList<>();
         
         for (ShortcutValidator validator : schemas) {
             if (!validator.allConstantsMatch(node)) {
@@ -146,11 +150,9 @@ public class OneOfValidator extends BaseJsonValidator implements JsonValidator {
                 continue;
             }
             JsonSchema schema = validator.schema;
-        	    Set<ValidationMessage> schemaErrors = schema.validateAsync(node, rootNode, at);
-            if (schemaErrors.isEmpty()) {
-                numberOfValidSchema++;
-                errors = new LinkedHashSet<ValidationMessage>();
-            }
+            validateFutures.add(schema.validateNonblocking(node, rootNode, at));
+            /*
+            TODO I don't understand the reason that this logic was in here. What was the intent?
             if(numberOfValidSchema == 0){
             	// one of has matched one of the elements
             	// if it has an error here, it is due to an element validation error
@@ -163,29 +165,31 @@ public class OneOfValidator extends BaseJsonValidator implements JsonValidator {
             		errors.addAll(schemaErrors);
             	}
         	}
+        	*/
         }
         
-        if (numberOfValidSchema == 0) {
-            for (Iterator<ValidationMessage> it = errors.iterator(); it.hasNext();) {
-                ValidationMessage msg = it.next();
-                
-                if (ValidatorTypeCode.ADDITIONAL_PROPERTIES.getValue().equals(msg.getType())) {
-                    it.remove();
-                }
-            }
-            if (errors.isEmpty()) {
-                // ensure there is always an error reported if number of valid schemas is 0
-                errors.add(buildValidationMessage(at, ""));
-            }
-        }
-        if (numberOfValidSchema > 1) {
-            errors = Collections.singleton(buildValidationMessage(at, ""));
-        }
-        
-        // reset the flag for error handling
-        config.setMissingNodeAsError(missingNodeAsError);
-        
-        return Collections.unmodifiableSet(errors);
+        return this.waitForValidateFutures(validateFutures)
+                .thenApply(validationResults -> {
+                    final long validSchemaCount = validationResults.stream()
+                            .filter(Collection::isEmpty)
+                            .collect(Collectors.counting());
+                    
+                    final Set<ValidationMessage> errors = new LinkedHashSet<>();
+                    if (validSchemaCount == 0) {
+                        
+                        errors.addAll(validationResults.stream()
+                                .flatMap(Set::stream)
+                                .filter(error -> !ValidatorTypeCode.ADDITIONAL_PROPERTIES.getValue().equals(error.getType()))
+                                .collect(Collectors.toSet()));
+                        if (errors.isEmpty()) {
+                            // ensure there is always an error reported if number of valid schemas is 0
+                            errors.add(buildValidationMessage(at, ""));
+                        }
+                    } else if (validSchemaCount > 1) {
+                        errors.add(buildValidationMessage(at, ""));
+                    }
+                    return Collections.unmodifiableSet(errors);
+                });
     }
 
 }

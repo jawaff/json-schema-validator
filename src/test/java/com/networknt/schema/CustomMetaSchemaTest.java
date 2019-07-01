@@ -59,7 +59,7 @@ public class CustomMetaSchemaTest {
             }
 
             @Override
-            public CompletableFuture<Set<ValidationMessage>> validateAsync(JsonNode node, JsonNode rootNode, String at) {
+            public CompletableFuture<Set<ValidationMessage>> validateNonblocking(JsonNode node, JsonNode rootNode, String at) {
                 String value = node.asText();
                 int idx = enumValues.indexOf(value);
                 if (idx < 0) {

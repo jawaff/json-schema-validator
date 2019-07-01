@@ -24,7 +24,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 
-public class UniqueItemsValidator extends BaseJsonValidator implements JsonValidator {
+public class UniqueItemsValidator extends BaseAsyncJsonValidator implements JsonValidator {
     private static final Logger logger = LoggerFactory.getLogger(UniqueItemsValidator.class);
 
     private boolean unique = false;
@@ -38,7 +38,7 @@ public class UniqueItemsValidator extends BaseJsonValidator implements JsonValid
         parseErrorCode(getValidatorType().getErrorCodeKey());
     }
 
-    public Set<ValidationMessage> validateAsync(JsonNode node, JsonNode rootNode, String at) {
+    public Set<ValidationMessage> validateBlocking(JsonNode node, JsonNode rootNode, String at) {
         debug(logger, node, rootNode, at);
 
         if (unique) {

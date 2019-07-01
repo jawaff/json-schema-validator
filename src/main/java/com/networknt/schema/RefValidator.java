@@ -20,6 +20,7 @@ import java.net.URI;
 import java.text.MessageFormat;
 import java.util.Collections;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -101,13 +102,13 @@ public class RefValidator extends BaseJsonValidator implements JsonValidator {
         return schemaUri;
     }
 
-    public Set<ValidationMessage> validateAsync(JsonNode node, JsonNode rootNode, String at) {
+    public CompletableFuture<Set<ValidationMessage>> validateNonblocking(JsonNode node, JsonNode rootNode, String at) {
         debug(logger, node, rootNode, at);
 
         if (schema != null) {
-            return schema.validateAsync(node, rootNode, at);
+            return schema.validateNonblocking(node, rootNode, at);
         } else {
-            return Collections.emptySet();
+            return CompletableFuture.completedFuture(Collections.emptySet());
         }
     }
 

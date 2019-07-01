@@ -17,12 +17,11 @@
 package com.networknt.schema;
 
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
@@ -47,14 +46,11 @@ public class AnyOfValidator extends BaseJsonValidator implements JsonValidator {
     public CompletableFuture<Set<ValidationMessage>> validateNonblocking(JsonNode node, JsonNode rootNode, String at) {
         debug(logger, node, rootNode, at);
 
-        @SuppressWarnings("unchecked")
-        final CompletableFuture<Set<ValidationMessage>>[] futures = (CompletableFuture<Set<ValidationMessage>>[]) 
-                new CompletableFuture[this.schemas.size()];
+        final Collection<CompletableFuture<Set<ValidationMessage>>> validateFutures = new ArrayList<>();
         final String typeValidatorName = "anyOf/type";
         final List<String> expectedTypeList = new ArrayList<String>();
 
-        for (int i = 0; i < this.schemas.size(); i++) {
-            final JsonSchema schema = this.schemas.get(i);
+        for (final JsonSchema schema : this.schemas) {
             if (schema.validators.containsKey(typeValidatorName)) {
                 TypeValidator typeValidator = ((TypeValidator) schema.validators.get(typeValidatorName));
                 //If schema has type validator and node type doesn't match with schemaType then ignore it
@@ -67,7 +63,7 @@ public class AnyOfValidator extends BaseJsonValidator implements JsonValidator {
             
             // There's no use in validating if we're returning an error based on this type list.
             if (!expectedTypeList.isEmpty()) {
-                futures[i] = schema.validateNonblocking(node, rootNode, at);
+                validateFutures.add(schema.validateNonblocking(node, rootNode, at));
             }
         }
         if (!expectedTypeList.isEmpty()) {
@@ -75,21 +71,12 @@ public class AnyOfValidator extends BaseJsonValidator implements JsonValidator {
                     buildValidationMessage(at, expectedTypeList.toArray(new String[expectedTypeList.size()]))));
         }
         
-        return CompletableFuture.allOf(futures)
-                .thenApply(nothing -> Arrays.stream(futures)
-                        .map(future -> {
-                            try {
-                                return future.get();
-                            } catch (InterruptedException e) {
-                                Thread.currentThread().interrupt();
-                                throw new RuntimeException();
-                            } catch (ExecutionException e) {
-                                throw new IllegalStateException("Validation failed.", e);
-                            }
-                        }))
-                .thenApply(errorSets -> errorSets.anyMatch(Set::isEmpty) 
-                        ? Collections.emptySet() 
-                        : errorSets.flatMap(Set::stream)
-                                .collect(Collectors.toSet()));
+        return this.waitForValidateFutures(validateFutures)
+                .thenApply(errorSets -> errorSets.stream()
+                        .anyMatch(Set::isEmpty) 
+                                ? Collections.emptySet() 
+                                : errorSets.stream()
+                                        .flatMap(Set::stream)
+                                        .collect(Collectors.toSet()));
     }
 }

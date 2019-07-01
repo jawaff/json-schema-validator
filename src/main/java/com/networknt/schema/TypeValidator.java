@@ -22,6 +22,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Collections;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 
 public class TypeValidator extends BaseJsonValidator implements JsonValidator {
     private static final String TYPE = "type";
@@ -99,18 +100,19 @@ public class TypeValidator extends BaseJsonValidator implements JsonValidator {
         return true;
     }
 
-    public Set<ValidationMessage> validateAsync(JsonNode node, JsonNode rootNode, String at) {
+    public CompletableFuture<Set<ValidationMessage>> validateNonblocking(JsonNode node, JsonNode rootNode, String at) {
         debug(logger, node, rootNode, at);
 
         if (schemaType == JsonType.UNION) {
-            return unionTypeValidator.validateAsync(node, rootNode, at);
+            return unionTypeValidator.validateNonblocking(node, rootNode, at);
         }
 
         if (!equalsToSchemaType(node)) {
             JsonType nodeType = TypeFactory.getValueNodeType(node);
-            return Collections.singleton(buildValidationMessage(at, nodeType.toString(), schemaType.toString()));
+            return CompletableFuture.completedFuture(
+                    Collections.singleton(buildValidationMessage(at, nodeType.toString(), schemaType.toString())));
         }
-        return Collections.emptySet();
+        return CompletableFuture.completedFuture(Collections.emptySet());
     }
 
     public static boolean isInteger(String str) {

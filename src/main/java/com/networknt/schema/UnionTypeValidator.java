@@ -16,14 +16,17 @@
 
 package com.networknt.schema;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.fasterxml.jackson.databind.JsonNode;
 
 public class UnionTypeValidator extends BaseJsonValidator implements JsonValidator {
     private static final Logger logger = LoggerFactory.getLogger(UnionTypeValidator.class);
@@ -62,26 +65,21 @@ public class UnionTypeValidator extends BaseJsonValidator implements JsonValidat
         error = errorBuilder.toString();
     }
 
-    public Set<ValidationMessage> validateAsync(JsonNode node, JsonNode rootNode, String at) {
+    public CompletableFuture<Set<ValidationMessage>> validateNonblocking(JsonNode node, JsonNode rootNode, String at) {
         debug(logger, node, rootNode, at);
 
         JsonType nodeType = TypeFactory.getValueNodeType(node);
 
-        boolean valid = false;
-
-        for (JsonValidator schema : schemas) {
-            Set<ValidationMessage> errors = schema.validateAsync(node, rootNode, at);
-            if (errors == null || errors.isEmpty()) {
-                valid = true;
-                break;
-            }
+        final Collection<CompletableFuture<Set<ValidationMessage>>> validateFutures = new ArrayList<>();
+        for (final JsonValidator schema : this.schemas) {
+            validateFutures.add(schema.validateNonblocking(node, rootNode, at));
         }
-
-        if (!valid) {
-            return Collections.singleton(buildValidationMessage(at, nodeType.toString(), error));
-        }
-
-        return Collections.emptySet();
+        
+        return this.waitForValidateFutures(validateFutures)
+                .thenApply(validateResults -> validateResults.stream()
+                        .anyMatch(errors -> errors.isEmpty())
+                                ? Collections.emptySet()
+                                : Collections.singleton(buildValidationMessage(at, nodeType.toString(), error)));
     }
 
 }

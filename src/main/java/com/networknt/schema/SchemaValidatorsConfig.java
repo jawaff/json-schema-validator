@@ -16,65 +16,70 @@
 
 package com.networknt.schema;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
+/**
+ * This class handles immutable and thread safe configurations in order to support the asynchronous execution of the validators.
+ */
 public class SchemaValidatorsConfig {
     /**
      * when validate type, if TYPE_LOOSE = true, will try to convert string to different types to match the type defined in schema.
      */
-    private boolean typeLoose;
+    private final AtomicBoolean typeLoose = new AtomicBoolean(false);
     
     /**
      * if IS_MISSING_NODE_AS_ERROR = true, the validator will ignore the missing node.
      * if set to false, then the validator will report an error
      */
-    private boolean missingNodeAsError = false;
+    private final AtomicBoolean missingNodeAsError = new AtomicBoolean(false);
     
     /**
      * if HAS_ELEMENT_VALIDATION_ERROR = true, the caller can decide, in conjunction with a missing node flag
      * on how to treat the error
      */
-    private boolean elementValidationError = false;
+    private final AtomicBoolean elementValidationError = new AtomicBoolean(false);
     
     /**
      * Map of public, normally internet accessible schema URLs to alternate locations; this allows for offline
      * validation of schemas that refer to public URLs. This is merged with any mappings the {@link JsonSchemaFactory} 
      * may have been built with.
      */
-    private Map<String, String> uriMappings = new HashMap<String, String>();
-
+    private final AtomicReference<Map<String, String>> uriMappings = new AtomicReference<>(Collections.emptyMap());
+    
     public boolean isTypeLoose() {
-        return typeLoose;
+        return typeLoose.get();
     }
 
     public void setTypeLoose(boolean typeLoose) {
-        this.typeLoose = typeLoose;
+        this.typeLoose.set(typeLoose);
     }
 
     public Map<String, String> getUriMappings() {
-        // return a copy of the mappings
-        return new HashMap<String, String>(uriMappings);
+        return this.uriMappings.get();
     }
 
     public void setUriMappings(Map<String, String> uriMappings) {
-        this.uriMappings = uriMappings;
+        this.uriMappings.set(new HashMap<>(uriMappings));
     }
     
     public boolean isMissingNodeAsError() {
-    	return missingNodeAsError;
+    	return missingNodeAsError.get();
     }
     
     public void setMissingNodeAsError(boolean missingNodeAsError) {
-    	this.missingNodeAsError = missingNodeAsError;
+    	this.missingNodeAsError.set(missingNodeAsError);
     }
     
     public boolean hasElementValidationError() {
-    	return elementValidationError;
+    	return elementValidationError.get();
     }
     
     public void setElementValidationError(boolean elementValidationError) {
-    	this.elementValidationError = elementValidationError;
+    	this.elementValidationError.set(elementValidationError);
     }
     
     public SchemaValidatorsConfig() {
@@ -82,7 +87,7 @@ public class SchemaValidatorsConfig {
     }
 
     private void loadDefaultConfig() {
-        this.typeLoose = true;
-        this.uriMappings = new HashMap<String, String>();
+        this.typeLoose.set(true);
+        this.uriMappings.set(Collections.emptyMap());
     }
 }

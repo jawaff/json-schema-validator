@@ -26,7 +26,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
-public class PatternValidator extends BaseJsonValidator implements JsonValidator {
+public class PatternValidator extends BaseAsyncJsonValidator implements JsonValidator {
     private static final Logger logger = LoggerFactory.getLogger(PatternValidator.class);
 
     private String pattern;
@@ -44,7 +44,7 @@ public class PatternValidator extends BaseJsonValidator implements JsonValidator
         parseErrorCode(getValidatorType().getErrorCodeKey());
     }
 
-    public Set<ValidationMessage> validateAsync(JsonNode node, JsonNode rootNode, String at) {
+    public Set<ValidationMessage> validateBlocking(JsonNode node, JsonNode rootNode, String at) {
         debug(logger, node, rootNode, at);
 
         JsonType nodeType = TypeFactory.getValueNodeType(node);

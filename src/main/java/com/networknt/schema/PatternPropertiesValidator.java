@@ -16,13 +16,21 @@
 
 package com.networknt.schema;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.IdentityHashMap;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.*;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import com.fasterxml.jackson.databind.JsonNode;
 
 public class PatternPropertiesValidator extends BaseJsonValidator implements JsonValidator {
     public static final String PROPERTY = "patternProperties";
@@ -42,15 +50,14 @@ public class PatternPropertiesValidator extends BaseJsonValidator implements Jso
         }
     }
 
-    public Set<ValidationMessage> validateAsync(JsonNode node, JsonNode rootNode, String at) {
+    public CompletableFuture<Set<ValidationMessage>> validateNonblocking(JsonNode node, JsonNode rootNode, String at) {
         debug(logger, node, rootNode, at);
 
-        Set<ValidationMessage> errors = new LinkedHashSet<ValidationMessage>();
-
         if (!node.isObject()) {
-            return errors;
+            return CompletableFuture.completedFuture(Collections.emptySet());
         }
-
+        
+        final Collection<CompletableFuture<Set<ValidationMessage>>> validateFutures = new ArrayList<>();
         Iterator<String> names = node.fieldNames();
         while (names.hasNext()) {
             String name = names.next();
@@ -58,11 +65,11 @@ public class PatternPropertiesValidator extends BaseJsonValidator implements Jso
             for (Map.Entry<Pattern, JsonSchema> entry : schemas.entrySet()) {
                 Matcher m = entry.getKey().matcher(name);
                 if (m.find()) {
-                    errors.addAll(entry.getValue().validateAsync(n, rootNode, at + "." + name));
+                    validateFutures.add(entry.getValue().validateNonblocking(n, rootNode, at + "." + name));
                 }
             }
         }
-        return Collections.unmodifiableSet(errors);
+        return this.combineValidateFutures(validateFutures);
     }
 
 }

@@ -140,6 +140,32 @@ public abstract class BaseJsonValidator implements JsonValidator {
                         .flatMap(Set::stream)
                         .collect(Collectors.toSet()));
     }
+    
+    /**
+     * The given futures will be waited on. After they all complete, the individual results will be returned.
+     * @param validateFutures The validate futures to wait for.
+     * @return A future with the individual results of the futures.
+     */
+    protected CompletableFuture<Collection<Set<ValidationMessage>>> waitForValidateFutures(
+            final Collection<CompletableFuture<Set<ValidationMessage>>> validateFutures) {
+        @SuppressWarnings("unchecked")
+        final CompletableFuture<Set<ValidationMessage>>[] futures = (CompletableFuture<Set<ValidationMessage>>[]) validateFutures.stream()
+                .toArray(CompletableFuture[]::new);
+        
+        return CompletableFuture.allOf(futures)
+                .thenApply(nothing -> Arrays.stream(futures)
+                        .map(future -> {
+                            try {
+                                return future.get();
+                            } catch (InterruptedException e) {
+                                Thread.currentThread().interrupt();
+                                throw new RuntimeException();
+                            } catch (ExecutionException e) {
+                                throw new IllegalStateException("Validation failed.", e);
+                            }
+                        })
+                        .collect(Collectors.toList()));
+    }
 
     protected boolean equals(double n1, double n2) {
         return Math.abs(n1 - n2) < 1e-12;

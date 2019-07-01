@@ -26,7 +26,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
-public class ReadOnlyValidator extends BaseJsonValidator implements JsonValidator {
+public class ReadOnlyValidator extends BaseAsyncJsonValidator implements JsonValidator {
     private static final Logger logger = LoggerFactory.getLogger(RequiredValidator.class);
 
     private List<String> fieldNames = new ArrayList<String>();
@@ -43,7 +43,7 @@ public class ReadOnlyValidator extends BaseJsonValidator implements JsonValidato
         parseErrorCode(getValidatorType().getErrorCodeKey());
     }
 
-    public Set<ValidationMessage> validateAsync(JsonNode node, JsonNode rootNode, String at) {
+    public Set<ValidationMessage> validateBlocking(JsonNode node, JsonNode rootNode, String at) {
         debug(logger, node, rootNode, at);
 
         Set<ValidationMessage> errors = new LinkedHashSet<ValidationMessage>();

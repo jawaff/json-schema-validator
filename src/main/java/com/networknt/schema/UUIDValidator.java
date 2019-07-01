@@ -25,7 +25,7 @@ import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.databind.JsonNode;
 
-public class UUIDValidator extends BaseJsonValidator implements JsonValidator {
+public class UUIDValidator extends BaseAsyncJsonValidator implements JsonValidator {
     private static final Logger logger = LoggerFactory.getLogger(UUIDValidator.class);
 
     private final String formatName;
@@ -39,7 +39,7 @@ public class UUIDValidator extends BaseJsonValidator implements JsonValidator {
         parseErrorCode(getValidatorType().getErrorCodeKey());
     }
 
-    public Set<ValidationMessage> validateAsync(JsonNode node, JsonNode rootNode, String at) {
+    public Set<ValidationMessage> validateBlocking(JsonNode node, JsonNode rootNode, String at) {
         debug(logger, node, rootNode, at);
 
         Set<ValidationMessage> errors = new LinkedHashSet<ValidationMessage>();
