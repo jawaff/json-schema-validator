@@ -71,9 +71,6 @@ public class PropertiesValidator extends BaseJsonValidator implements JsonValida
                 		validateFutures.add(CompletableFuture.completedFuture(
                 		        Collections.singleton(buildValidationMessage(at, node.toString()))));
             	}
-            	else {
-            	    validateFutures.add(CompletableFuture.completedFuture(Collections.emptySet()));
-            	}
             }
         }
 
