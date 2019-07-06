@@ -57,6 +57,9 @@ public class AnyOfValidator extends BaseJsonValidator implements JsonValidator {
                 //For union type, it is must to call TypeValidator
                 if (typeValidator.getSchemaType() != JsonType.UNION && !typeValidator.equalsToSchemaType(node)) {
                     expectedTypeList.add(typeValidator.getSchemaType().toString());
+                    // Interrupts any futures that have already started.
+                    validateFutures.forEach(future -> future.cancel(true));
+                    validateFutures.clear();
                     continue;
                 }
             }
@@ -69,14 +72,14 @@ public class AnyOfValidator extends BaseJsonValidator implements JsonValidator {
         if (!expectedTypeList.isEmpty()) {
             return CompletableFuture.completedFuture(Collections.singleton(
                     buildValidationMessage(at, expectedTypeList.toArray(new String[expectedTypeList.size()]))));
+        } else {
+            return this.waitForValidateFutures(validateFutures)
+                    .thenApply(errorSets -> errorSets.stream()
+                            .anyMatch(Set::isEmpty) 
+                                    ? Collections.emptySet() 
+                                    : errorSets.stream()
+                                            .flatMap(Set::stream)
+                                            .collect(Collectors.toSet()));
         }
-        
-        return this.waitForValidateFutures(validateFutures)
-                .thenApply(errorSets -> errorSets.stream()
-                        .anyMatch(Set::isEmpty) 
-                                ? Collections.emptySet() 
-                                : errorSets.stream()
-                                        .flatMap(Set::stream)
-                                        .collect(Collectors.toSet()));
     }
 }
