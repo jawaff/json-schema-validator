@@ -53,33 +53,58 @@ public class AnyOfValidator extends BaseJsonValidator implements JsonValidator {
         for (final JsonSchema schema : this.schemas) {
             if (schema.validators.containsKey(typeValidatorName)) {
                 TypeValidator typeValidator = ((TypeValidator) schema.validators.get(typeValidatorName));
-                //If schema has type validator and node type doesn't match with schemaType then ignore it
-                //For union type, it is must to call TypeValidator
+                
+                // Checks to see if the schema type of the type validator is as expected.
+                // If the validators all fail, then we will report that the validators' schema types 
+                // don't match the given data. 
                 if (typeValidator.getSchemaType() != JsonType.UNION && !typeValidator.equalsToSchemaType(node)) {
                     expectedTypeList.add(typeValidator.getSchemaType().toString());
-                    // Interrupts any futures that have already started.
-                    validateFutures.forEach(future -> future.cancel(true));
-                    validateFutures.clear();
                     continue;
                 }
             }
             
-            // There's no use in validating if we're returning an error based on this type list.
-            if (expectedTypeList.isEmpty()) {
-                validateFutures.add(schema.validateNonblocking(node, rootNode, at));
-            }
+            validateFutures.add(schema.validateNonblocking(node, rootNode, at));
         }
-        if (!expectedTypeList.isEmpty()) {
-            return CompletableFuture.completedFuture(Collections.singleton(
-                    buildValidationMessage(at, expectedTypeList.toArray(new String[expectedTypeList.size()]))));
-        } else {
-            return this.waitForValidateFutures(validateFutures)
-                    .thenApply(errorSets -> errorSets.stream()
-                            .anyMatch(Set::isEmpty) 
-                                    ? Collections.emptySet() 
-                                    : errorSets.stream()
-                                            .flatMap(Set::stream)
-                                            .collect(Collectors.toSet()));
-        }
+        return this.waitForValidateFutures(validateFutures)
+                .thenApply(errorSets -> this.anySuccess(errorSets)
+                        ? Collections.emptySet() 
+                        // We'll report different errors for different situations.
+                        : expectedTypeList.isEmpty()
+                                ? this.combineErrors(errorSets) 
+                                : this.createExpectedTypeErrors(expectedTypeList, at));
+    }
+    
+    /**
+     * Checks to see if any of the error sets are empty, which indicates
+     * a success.
+     * @param errorSets The error sets to check.
+     * @return True if any of the error sets are empty.
+     */
+    private boolean anySuccess(final Collection<Set<ValidationMessage>> errorSets) {
+        return errorSets.stream()
+                .anyMatch(Set::isEmpty);
+    }
+    
+    /**
+     * Combines the given error sets into a single error set.
+     * @param errorSets The error sets to combine.
+     * @return The combined error set.
+     */
+    private Set<ValidationMessage> combineErrors(final Collection<Set<ValidationMessage>> errorSets) {
+        return errorSets.stream()
+                .flatMap(Set::stream)
+                .collect(Collectors.toSet());
+    }
+    
+    /**
+     * Creates the errors for the expected schema types.
+     * @param expectedTypeList The expected schema types.
+     * @param at The current location in the data.
+     * @return The created schema type errors.
+     */
+    private Set<ValidationMessage> createExpectedTypeErrors(final List<String> expectedTypeList, final String at) {
+        return Collections.singleton(buildValidationMessage(
+                at, 
+                expectedTypeList.toArray(new String[expectedTypeList.size()])));
     }
 }
