@@ -16,11 +16,9 @@
 
 package com.networknt.schema;
 
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * This class handles immutable and thread safe configurations in order to support the asynchronous execution of the validators.
@@ -48,7 +46,7 @@ public class SchemaValidatorsConfig {
      * validation of schemas that refer to public URLs. This is merged with any mappings the {@link JsonSchemaFactory} 
      * may have been built with.
      */
-    private final AtomicReference<Map<String, String>> uriMappings = new AtomicReference<>(Collections.emptyMap());
+    private final Map<String, String> uriMappings = new ConcurrentHashMap<>();
     
     public boolean isTypeLoose() {
         return typeLoose.get();
@@ -59,11 +57,12 @@ public class SchemaValidatorsConfig {
     }
 
     public Map<String, String> getUriMappings() {
-        return this.uriMappings.get();
+        return this.uriMappings;
     }
 
     public void setUriMappings(Map<String, String> uriMappings) {
-        this.uriMappings.set(new HashMap<>(uriMappings));
+        this.uriMappings.clear();
+        this.uriMappings.putAll(uriMappings);
     }
     
     public boolean isMissingNodeAsError() {
@@ -88,6 +87,6 @@ public class SchemaValidatorsConfig {
 
     private void loadDefaultConfig() {
         this.typeLoose.set(true);
-        this.uriMappings.set(Collections.emptyMap());
+        this.uriMappings.clear();
     }
 }

@@ -18,6 +18,7 @@ package com.networknt.schema;
 
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 
 import com.fasterxml.jackson.databind.JsonNode;
 
