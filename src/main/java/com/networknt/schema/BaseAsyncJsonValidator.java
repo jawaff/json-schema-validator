@@ -26,8 +26,6 @@ import org.slf4j.LoggerFactory;
 import com.fasterxml.jackson.databind.JsonNode;
 
 public abstract class BaseAsyncJsonValidator extends BaseJsonValidator implements JsonValidator {
-    private static final Logger logger = LoggerFactory.getLogger(BaseAsyncJsonValidator.class);
-    
     private final ValidationContext validationContext;
     
     protected BaseAsyncJsonValidator(
